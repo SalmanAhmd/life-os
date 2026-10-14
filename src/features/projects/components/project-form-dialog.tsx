@@ -229,7 +229,7 @@ export function ProjectFormDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      {/* <SelectItem value="">None</SelectItem> */}
                       {lifeAreas.map((area) => (
                         <SelectItem key={area.id} value={area.id}>
                           {area.name}
