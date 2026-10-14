@@ -1,0 +1,810 @@
+// Life OS — Prisma schema
+//
+// Conventions
+// - All user-owned rows carry `userId`. Row Level authorization is enforced in
+//   the data-access layer (src/features/*/queries.ts + actions.ts), never only
+//   in middleware or UI.
+// - Date-only values (deadlines, habit check-in dates, occurrence dates) use
+//   `@db.Date`. They are interpreted in the *user's* timezone by helpers in
+//   `src/lib/dates`. They are NOT arbitrary UTC instants.
+// - Real instants (events, reminders, audit timestamps) use `@db.Timestamptz(3)`.
+// - Derived values (streaks, progress, point totals) are calculated on read so
+//   there is a single source of truth. Nothing cached unless documented.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Auth.js / NextAuth v5 database adapter models)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  passwordHash  String?
+  emailVerified DateTime? @db.Timestamptz(3)
+  timezone      String    @default("UTC")
+  onboardedAt   DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  accounts      Account[]
+  sessions      Session[]
+  preferences   UserPreferences?
+  schedule      ScheduleSettings?
+  weekdayTemplates WeekdayTemplate[]
+
+  lifeAreas     LifeArea[]
+  projects      Project[]
+  projectMilestones ProjectMilestone[]
+  tasks         Task[]
+  taskOccurrences TaskOccurrence[]
+  taskCompletions TaskCompletion[]
+  recurrenceRules RecurrenceRule[]
+  goals         Goal[]
+  goalMilestones GoalMilestone[]
+  goalTasks     GoalTask[]
+  habits        Habit[]
+  habitCheckIns HabitCheckIn[]
+  notes         Note[]
+  journalEntries JournalEntry[]
+  tags          Tag[]
+  timetableTemplates TimetableTemplate[]
+  timetableBlocks TimetableBlock[]
+  events        CalendarEvent[]
+  reminders     Reminder[]
+  notifications Notification[]
+  rewardTransactions RewardTransaction[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(3)
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Preferences & scheduling
+// ---------------------------------------------------------------------------
+
+model UserPreferences {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  theme                 String   @default("system") // light | dark | system
+  weekStartsOn          Int      @default(1) // 0 = Sunday, 1 = Monday
+  timeFormat            String   @default("24h") // "12h" | "24h"
+  defaultTaskView       String   @default("list") // list | table | board
+  dashboardWidgets      Json? // ordered list of widget keys; null = all defaults
+  // Reward configuration (kept deliberately simple, no virtual economy).
+  pointsPerTask         Int      @default(10)
+  pointsPerHighPriority Boolean  @default(true)
+  highPriorityBonus     Int      @default(5)
+  pointsPerHabit        Int      @default(5)
+  pointsPerMilestone    Int      @default(25)
+  perfectDayBonus       Int      @default(20)
+  perfectDayEnabled     Boolean  @default(false)
+  // Notification preferences
+  notifyInApp           Boolean  @default(true)
+  notifyBrowser         Boolean  @default(false)
+  dailyAgendaEnabled    Boolean  @default(false)
+  dailyAgendaTime       String   @default("07:30") // HH:mm local
+  defaultReminderMinutes Int     @default(15)
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ScheduleSettings {
+  id               String       @id @default(cuid())
+  userId           String       @unique
+  weekStartsOn     Int          @default(1)
+  timeFormat       String       @default("24h")
+  saturdayRule     SaturdayRule @default(ALL_OFF)
+  // Explicit list of working weekdays (0=Sun..6=Sat). Always stored, even for
+  // preset rules so the effective schedule is unambiguous.
+  workingDays      Int[]        @default([1, 2, 3, 4, 5])
+  // Number of weeks between working Saturdays for ALTERNATE_OFF (2 = every other).
+  alternateSaturdayWeeks Int    @default(2)
+  // Anchor date for alternate-Saturday parity (ISO date).
+  alternateSaturdayAnchor DateTime? @db.Date
+  dayStartMinutes  Int          @default(480) // 08:00
+  dayEndMinutes    Int          @default(1080) // 18:00
+  // Holidays: [{ date: "2026-01-01", name: "New Year" }]
+  holidays         Json?
+  // Exceptional working days: dates that override non-working defaults.
+  exceptionalWorkdays Json?
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WeekdayTemplate {
+  id         String   @id @default(cuid())
+  userId     String
+  dayOfWeek  Int // 0..6
+  templateId String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template TimetableTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, dayOfWeek])
+  @@index([userId])
+}
+
+model TimetableTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  dayType     String   @default("custom") // weekday | weekend | custom
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blocks    TimetableBlock[]
+  weekdays  WeekdayTemplate[]
+
+  @@index([userId])
+}
+
+model TimetableBlock {
+  id          String   @id @default(cuid())
+  userId      String
+  templateId  String
+  title       String
+  description String?
+  category    String?
+  color       String?
+  startMinutes Int
+  endMinutes   Int
+  order        Int      @default(0)
+  isRecurring  Boolean  @default(true)
+  taskId       String?
+  lifeAreaId   String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template TimetableTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  task     Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  lifeArea LifeArea?       @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([templateId])
+}
+
+// ---------------------------------------------------------------------------
+// Life areas & tags
+// ---------------------------------------------------------------------------
+
+model LifeArea {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String   @default("#6366f1")
+  icon      String   @default("circle")
+  order     Int      @default(0)
+  isArchived Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+  goals     Goal[]
+  habits    Habit[]
+  notes     Note[]
+  projects  Project[]
+  events    CalendarEvent[]
+  timetableBlocks TimetableBlock[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String   @default("#64748b")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks        Task[]       @relation("TaskTags")
+  notes        Note[]       @relation("NoteTags")
+  journalEntries JournalEntry[] @relation("JournalTags")
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Recurrence
+// ---------------------------------------------------------------------------
+
+model RecurrenceRule {
+  id          String              @id @default(cuid())
+  userId      String
+  frequency   RecurrenceFrequency
+  interval    Int                 @default(1)
+  // For WEEKLY: weekday numbers (0=Sun..6=Sat); empty = use startDate weekday.
+  byWeekday   Int[]               @default([])
+  // MONTHLY on a day of month (1..31). Null when using bySetPos.
+  byMonthDay  Int?
+  // MONTHLY/YEARLY "nth weekday": -1 = last, 1..4 = first..fourth.
+  bySetPos    Int?
+  // For MONTHLY/YEARLY nth-weekday, which weekday: 0..6.
+  byWeekdayForSetPos Int?
+  // YEARLY month (1..12); null = use startDate month.
+  byMonth     Int?
+  startDate   DateTime            @db.Date
+  endDate     DateTime?           @db.Date
+  count       Int?
+  timezone    String              @default("UTC")
+  // Excluded occurrence dates (ISO date strings): ["2026-02-14"].
+  exclusions  Json?
+  createdAt   DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @db.Timestamptz(3)
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+  events       CalendarEvent[]
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+model Task {
+  id              String        @id @default(cuid())
+  userId          String
+  title           String
+  description     String?
+  status          TaskStatus    @default(TODO)
+  priority        TaskPriority  @default(MEDIUM)
+  // Date-only planned date ("do date") and deadline.
+  doDate          DateTime?     @db.Date
+  dueDate         DateTime?     @db.Date
+  startMinutes    Int?
+  endMinutes      Int?
+  estimatedMinutes Int?
+  actualMinutes   Int?
+  // Recurring tasks: this row is the series definition (template).
+  recurrenceRuleId String?
+  seriesId        String? // stable identity shared by occurrences; = template id
+  isRecurring     Boolean       @default(false)
+  lifeAreaId      String?
+  projectId       String?
+  parentTaskId    String?
+  order           Int           @default(0)
+  completedAt     DateTime?     @db.Timestamptz(3)
+  archivedAt      DateTime?     @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lifeArea     LifeArea?        @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  project      Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parentTask   Task?            @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks     Task[]           @relation("Subtasks")
+  recurrenceRule RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
+  tags         Tag[]            @relation("TaskTags")
+  occurrences  TaskOccurrence[]
+  completions  TaskCompletion[]
+  goalLinks    GoalTask[]
+  reminders    Reminder[]
+  timetableBlocks TimetableBlock[]
+  notes        Note[]
+  linkedHabit  Habit?
+
+  @@index([userId, status])
+  @@index([userId, doDate])
+  @@index([userId, dueDate])
+  @@index([userId, seriesId])
+  @@index([userId, projectId])
+  @@index([userId, lifeAreaId])
+}
+
+model TaskOccurrence {
+  id           String           @id @default(cuid())
+  userId       String
+  taskId       String // the series template
+  seriesId     String
+  scheduledFor DateTime         @db.Date
+  status       OccurrenceStatus @default(PENDING)
+  completedAt  DateTime?        @db.Timestamptz(3)
+  skipped      Boolean          @default(false)
+  movedTo      DateTime?        @db.Date
+  actualMinutes Int?
+  note         String?
+  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, scheduledFor])
+  @@index([userId, scheduledFor])
+  @@index([userId, seriesId])
+}
+
+model TaskCompletion {
+  id           String   @id @default(cuid())
+  userId       String
+  taskId       String
+  occurrenceId String?
+  completedAt  DateTime @default(now()) @db.Timestamptz(3)
+  actualMinutes Int?
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+  @@index([taskId])
+  @@index([occurrenceId])
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+model Project {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  priority    TaskPriority  @default(MEDIUM)
+  startDate   DateTime?     @db.Date
+  targetDate  DateTime?     @db.Date
+  lifeAreaId  String?
+  completedAt DateTime?     @db.Timestamptz(3)
+  archivedAt  DateTime?     @db.Timestamptz(3)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lifeArea   LifeArea?         @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  tasks      Task[]
+  milestones ProjectMilestone[]
+  goals      Goal[]
+  notes      Note[]
+
+  @@index([userId, status])
+}
+
+model ProjectMilestone {
+  id          String    @id @default(cuid())
+  userId      String
+  projectId   String
+  title       String
+  dueDate     DateTime? @db.Date
+  completedAt DateTime? @db.Timestamptz(3)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Goals
+// ---------------------------------------------------------------------------
+
+model Goal {
+  id          String         @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  timeframe   GoalTimeframe  @default(MONTHLY)
+  status      GoalStatus     @default(IN_PROGRESS)
+  priority    TaskPriority   @default(MEDIUM)
+  metricType  GoalMetricType @default(MANUAL)
+  startDate   DateTime       @db.Date
+  targetDate  DateTime?      @db.Date
+  targetValue Float?
+  currentValue Float?
+  unit        String?
+  parentGoalId String?
+  lifeAreaId  String?
+  projectId   String?
+  completedAt DateTime?      @db.Timestamptz(3)
+  archivedAt  DateTime?      @db.Timestamptz(3)
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(3)
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentGoal Goal?          @relation("GoalHierarchy", fields: [parentGoalId], references: [id], onDelete: SetNull)
+  subGoals   Goal[]         @relation("GoalHierarchy")
+  lifeArea   LifeArea?      @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  project    Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestones GoalMilestone[]
+  taskLinks  GoalTask[]
+  reminders  Reminder[]
+
+  @@index([userId, status])
+  @@index([userId, timeframe])
+  @@index([userId, lifeAreaId])
+}
+
+model GoalMilestone {
+  id          String    @id @default(cuid())
+  userId      String
+  goalId      String
+  title       String
+  dueDate     DateTime? @db.Date
+  completedAt DateTime? @db.Timestamptz(3)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+model GoalTask {
+  id     String @id @default(cuid())
+  userId String
+  goalId String
+  taskId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // A task links to a goal at most once, so goal progress can never double count.
+  @@unique([goalId, taskId])
+  @@index([userId])
+  @@index([taskId])
+}
+
+model Habit {
+  id          String          @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  frequency   HabitFrequency  @default(DAILY)
+  targetPerPeriod Int         @default(1)
+  weekdays    Int[]           @default([])
+  unit        String?
+  color       String          @default("#10b981")
+  icon        String          @default("check")
+  lifeAreaId  String?
+  linkedTaskId String?        @unique
+  isArchived  Boolean         @default(false)
+  archivedAt  DateTime?       @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lifeArea  LifeArea?      @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  linkedTask Task?         @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  checkIns  HabitCheckIn[]
+
+  @@index([userId, isArchived])
+}
+
+model HabitCheckIn {
+  id        String   @id @default(cuid())
+  userId    String
+  habitId   String
+  date      DateTime @db.Date
+  value     Float    @default(1)
+  note      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([userId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Notes & Journal
+// ---------------------------------------------------------------------------
+
+model Note {
+  id         String     @id @default(cuid())
+  userId     String
+  title      String
+  body       String     @default("")
+  format     NoteFormat @default(MARKDOWN)
+  pinned     Boolean    @default(false)
+  archived   Boolean    @default(false)
+  lifeAreaId String?
+  projectId  String?
+  goalId     String?
+  taskId     String?
+  createdAt  DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime   @updatedAt @db.Timestamptz(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lifeArea LifeArea? @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  project  Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task     Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  tags     Tag[]    @relation("NoteTags")
+
+  @@index([userId, archived])
+  @@index([userId, pinned])
+}
+
+model JournalEntry {
+  id        String       @id @default(cuid())
+  userId    String
+  date      DateTime     @db.Date
+  title     String?
+  body      String       @default("")
+  mood      JournalMood?
+  gratitude String?
+  isPrivate Boolean      @default(true)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags Tag[] @relation("JournalTags")
+
+  @@index([userId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Calendar, reminders, notifications
+// ---------------------------------------------------------------------------
+
+model CalendarEvent {
+  id              String    @id @default(cuid())
+  userId          String
+  title           String
+  description     String?
+  location        String?
+  meetingUrl      String?
+  startsAt        DateTime  @db.Timestamptz(3)
+  endsAt          DateTime  @db.Timestamptz(3)
+  allDay          Boolean   @default(false)
+  lifeAreaId      String?
+  recurrenceRuleId String?
+  seriesId        String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lifeArea       LifeArea?       @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  recurrenceRule RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
+  reminders      Reminder[]
+
+  @@index([userId, startsAt])
+}
+
+model Reminder {
+  id          String              @id @default(cuid())
+  userId      String
+  entityType  ReminderEntityType
+  taskId      String?
+  eventId     String?
+  goalId      String?
+  triggerAt   DateTime            @db.Timestamptz(3)
+  leadMinutes Int                 @default(15)
+  channel     ReminderChannel     @default(IN_APP)
+  sentAt      DateTime?           @db.Timestamptz(3)
+  dismissedAt DateTime?           @db.Timestamptz(3)
+  createdAt   DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @db.Timestamptz(3)
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task  Task?          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  event CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  goal  Goal?          @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([userId, triggerAt])
+  @@index([userId, sentAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType @default(INFO)
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?        @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Rewards ledger
+// ---------------------------------------------------------------------------
+
+model RewardTransaction {
+  id             String       @id @default(cuid())
+  userId         String
+  points         Int // positive award, negative reversal
+  reason         RewardReason
+  // Idempotency: a given qualifying completion can award at most once.
+  // e.g. "task:completed:<taskId>", "occurrence:completed:<occurrenceId>",
+  // "habit:<habitId>:<yyyy-mm-dd>", "milestone:<milestoneId>", "perfectday:<date>"
+  idempotencyKey String       @unique
+  taskId         String?
+  occurrenceId   String?
+  habitId        String?
+  goalMilestoneId String?
+  note           String?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum OccurrenceStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum SaturdayRule {
+  ALL_OFF
+  ALTERNATE_OFF
+  SECOND_FOURTH_OFF
+  ALL_WORKING
+  CUSTOM
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum GoalTimeframe {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum GoalMetricType {
+  MANUAL
+  TASK_BASED
+  HABIT_BASED
+  NUMERIC
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+enum NoteFormat {
+  MARKDOWN
+  PLAIN
+}
+
+enum JournalMood {
+  GREAT
+  GOOD
+  OKAY
+  LOW
+  BAD
+}
+
+enum ReminderEntityType {
+  TASK
+  OCCURRENCE
+  EVENT
+  GOAL
+}
+
+enum ReminderChannel {
+  IN_APP
+  EMAIL
+  BROWSER
+}
+
+enum NotificationType {
+  REMINDER
+  INFO
+  SYSTEM
+}
+
+enum RewardReason {
+  TASK_COMPLETED
+  HIGH_PRIORITY_TASK_COMPLETED
+  HABIT_COMPLETED
+  GOAL_MILESTONE_COMPLETED
+  PERFECT_DAY
+  MANUAL_ADJUSTMENT
+  REVERSAL
+}
