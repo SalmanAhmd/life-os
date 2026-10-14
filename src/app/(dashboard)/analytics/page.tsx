@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { requireUser } from "@/lib/auth/current-user";
 
 export const metadata: Metadata = { title: "Analytics" };
 
 export default function AnalyticsPage() {
-  const user = await requireUser();
   
   return (
     <div className="p-6">
