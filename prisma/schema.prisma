@@ -40,7 +40,6 @@ model User {
   sessions      Session[]
   preferences   UserPreferences?
   schedule      ScheduleSettings?
-  weekdayTemplates WeekdayTemplate[]
 
   lifeAreas     LifeArea[]
   projects      Project[]
@@ -57,7 +56,6 @@ model User {
   notes         Note[]
   journalEntries JournalEntry[]
   tags          Tag[]
-  timetableTemplates TimetableTemplate[]
   timetableBlocks TimetableBlock[]
   events        CalendarEvent[]
   reminders     Reminder[]
@@ -160,62 +158,26 @@ model ScheduleSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model WeekdayTemplate {
-  id         String   @id @default(cuid())
-  userId     String
-  dayOfWeek  Int // 0..6
-  templateId String?
-  createdAt  DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
-
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template TimetableTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-
-  @@unique([userId, dayOfWeek])
-  @@index([userId])
-}
-
-model TimetableTemplate {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  description String?
-  dayType     String   @default("custom") // weekday | weekend | custom
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
-
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  blocks    TimetableBlock[]
-  weekdays  WeekdayTemplate[]
-
-  @@index([userId])
-}
-
 model TimetableBlock {
-  id          String   @id @default(cuid())
-  userId      String
-  templateId  String
-  title       String
-  description String?
-  category    String?
-  color       String?
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  description  String?
+  category     String?
+  color        String?
   startMinutes Int
   endMinutes   Int
-  order        Int      @default(0)
-  isRecurring  Boolean  @default(true)
+  days         Int[]    @default([]) // day-of-week numbers (0=Sun..6=Sat) this block repeats on
   taskId       String?
   lifeAreaId   String?
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
-  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template TimetableTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  task     Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  lifeArea LifeArea?       @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task     Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  lifeArea LifeArea? @relation(fields: [lifeAreaId], references: [id], onDelete: SetNull)
 
   @@index([userId])
-  @@index([templateId])
 }
 
 // ---------------------------------------------------------------------------

@@ -29,8 +29,8 @@ import { scheduleInputSchema, type ScheduleInput } from "@/features/settings/sch
 import { effectiveWorkingWeekdays, workingDayCountForMonth, isWorkingDay, type ScheduleConfig } from "@/lib/working-days";
 import { todayDateOnly, monthName, yearOf, type DateOnly } from "@/lib/dates";
 
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const FULL_WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const FULL_WEEKDAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function parseJson<T>(val: unknown, fallback: T): T {
   if (!val) return fallback;
