@@ -1,19 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "framework": "nextjs",
-  "env": {
-    "DATABASE_URL": {
-      "fromEnv": ".env"
-    },
-    "AUTH_SECRET": {
-      "fromEnv": ".env"
-    },
-    "AUTH_URL": {
-      "value": "https://life-os.vercel.app"
-    },
-    "NEXT_PUBLIC_APP_URL": {
-      "value": "https://life-os.vercel.app"
-    }
-  }
+  "framework": "nextjs"
 }
