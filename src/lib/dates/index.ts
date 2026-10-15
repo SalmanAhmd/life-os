@@ -43,7 +43,7 @@ export function dateOnlyToUtc(value: DateOnly): Date {
 export function utcToDateOnly(date: Date): DateOnly {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
@@ -310,7 +310,7 @@ export function formatDateOnlyLong(value: DateOnly): string {
 }
 
 export function relativeDayLabel(value: DateOnly, today: DateOnly): string {
-  const delta = diffDays(today, value) - 1;
+  const delta = diffDays(today, value);
   if (delta === 0) return "Today";
   if (delta === 1) return "Tomorrow";
   if (delta === -1) return "Yesterday";

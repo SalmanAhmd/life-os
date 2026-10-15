@@ -10,7 +10,6 @@ import {
   type DateOnly,
   dateOnlyToUtc,
   formatDateOnly,
-  utcToDateOnly,
 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +20,7 @@ export function DatePicker({
   disabled,
   className,
   clearable = true,
+  showMonthYear = false,
 }: {
   value: DateOnly | null;
   onChange: (value: DateOnly | null) => void;
@@ -28,6 +28,7 @@ export function DatePicker({
   disabled?: boolean;
   className?: string;
   clearable?: boolean;
+  showMonthYear?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const selected = value ? dateOnlyToUtc(value) : undefined;
@@ -51,16 +52,25 @@ export function DatePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={selected}
-            defaultMonth={selected}
-            onSelect={(date) => {
-              onChange(date ? utcToDateOnly(date) : null);
-              setOpen(false);
-            }}
-            autoFocus
-          />
+          {value && (
+            <div className="p-2 border-b border-border/60 flex items-center justify-between">
+              <Calendar
+                mode="single"
+                selected={selected}
+                onSelect={(date) => {
+                  // Use local getters since the Date object from DayPicker
+                  // already represents the selected day in the user's local timezone
+                  if (!date) return;
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                  const day = String(date.getDate()).padStart(2, "0");
+                  onChange(`${year}-${month}-${day}`);
+                  setOpen(false);
+                }}
+                autoFocus
+              />
+            </div>
+          )}
         </PopoverContent>
       </Popover>
       {clearable && value ? (
