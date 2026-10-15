@@ -2,7 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "monoRepoRoot": "/",
   "env": {
     "DATABASE_URL": {
       "fromEnv": ".env"
