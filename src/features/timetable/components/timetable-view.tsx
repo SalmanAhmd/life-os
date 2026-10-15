@@ -154,6 +154,7 @@ export function TimetableView({
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [editingBlock, setEditingBlock] = useState<TimetableBlock | null>(null);
   const [editingBlockTemplateId, setEditingBlockTemplateId] = useState<string | null>(null);
+  const [isAddingBlock, setIsAddingBlock] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const workingWeekdays = effectiveWorkingWeekdays(today, 1, scheduleConfig);
@@ -256,7 +257,7 @@ export function TimetableView({
                   <p className="text-sm text-muted-foreground text-center py-4">No blocks yet</p>
                 )}
                 <Button variant="outline" size="sm" className="w-full gap-1"
-                  onClick={() => { setEditingBlock(null); setEditingBlockTemplateId(template.id); setCreatingTemplate(false); }}>
+                  onClick={() => { setIsAddingBlock(true); setEditingBlockTemplateId(template.id); setCreatingTemplate(false); }}>
                   <Plus className="size-3.5" /> Add block
                 </Button>
               </CardContent>
@@ -274,8 +275,16 @@ export function TimetableView({
       <BlockFormDialog
         block={editingBlock}
         templateId={editingBlockTemplateId}
-        open={editingBlock != null}
-        onOpenChange={(open) => { if (!open) { setEditingBlock(null); setEditingBlockTemplateId(null); } }}
+        open={editingBlock != null || isAddingBlock}
+        onOpenChange={(open) => { 
+          if (!open) { 
+            setEditingBlock(null); 
+            setEditingBlockTemplateId(null); 
+            setIsAddingBlock(false); 
+          } 
+        }}
+        editingBlockTemplateId={editingBlockTemplateId}
+        isAddingBlock={isAddingBlock}
         lifeAreas={lifeAreas}
         taskOptions={taskOptions}
       />

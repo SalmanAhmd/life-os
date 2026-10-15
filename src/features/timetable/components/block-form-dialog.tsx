@@ -42,6 +42,8 @@ interface BlockFormDialogProps {
   onOpenChange: (open: boolean) => void;
   lifeAreas: PickerOption[];
   taskOptions: PickerOption[];
+  isAddingBlock?: boolean
+  editingBlockTemplateId: string | null;
 }
 
 interface TimetableBlock {
@@ -80,30 +82,33 @@ function formatMinutesToTime(minutes: number): string {
   return `${h}:${m}`;
 }
 
-export function BlockFormDialog({ block, templateId, open, onOpenChange, lifeAreas, taskOptions }: BlockFormDialogProps) {
+export function BlockFormDialog({ block, templateId, open, onOpenChange, lifeAreas, taskOptions, isAddingBlock,editingBlockTemplateId }: BlockFormDialogProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<BlockInput>({
     resolver: zodResolver(blockInputSchema),
     defaultValues: block
       ? {
-          id: block.id,
-          templateId: templateId ?? block.templateId,
-          title: block.title,
-          description: block.description ?? "",
-          category: block.category ?? "",
-          color: block.color ?? "",
-          start: formatMinutesToTime(block.startMinutes),
-          end: formatMinutesToTime(block.endMinutes),
-          taskId: block.taskId ?? "",
-          lifeAreaId: block.lifeAreaId ?? "",
-        }
-      : { templateId: templateId ?? "", title: "", description: "", category: "", color: "", start: "09:00", end: "10:00", taskId: "", lifeAreaId: "" },
+        id: block.id,
+        templateId: templateId ?? block.templateId,
+        title: block.title,
+        description: block.description ?? "",
+        category: block.category ?? "",
+        color: block.color ?? "",
+        start: formatMinutesToTime(block.startMinutes),
+        end: formatMinutesToTime(block.endMinutes),
+        taskId: block.taskId ?? "",
+        lifeAreaId: block.lifeAreaId ?? "",
+      }
+      : { templateId: templateId ?? "", title: "New block", description: "", category: "", color: "", start: "09:00", end: "10:00", taskId: "", lifeAreaId: "" },
   });
 
   function onSubmit(data: BlockInput) {
     startTransition(async () => {
-      const result = block ? await updateBlock(data) : await addBlock(data);
+      const result = isAddingBlock ? await addBlock({
+        ...data,
+        templateId: editingBlockTemplateId ?? data.templateId
+      }) : await updateBlock({ ...data, id: block?.id });
       if (!result.ok) {
         toast.error(result.error ?? "Failed to save block");
         if (result.fieldErrors) {
@@ -113,20 +118,20 @@ export function BlockFormDialog({ block, templateId, open, onOpenChange, lifeAre
         }
         return;
       }
-      toast.success(block ? "Block updated" : "Block added");
+      toast.success(isAddingBlock ? "Block added" : "Block updated");
       onOpenChange(false);
     });
   }
 
   function handleDelete() {
-    if (!block) return;
+    if (!block && !isAddingBlock) return;
     startTransition(async () => {
-      const result = await deleteBlock(block.id);
+      const result = isAddingBlock ? { ok: true } : await deleteBlock(block!.id);
       if (!result.ok) {
-        toast.error(result.error ?? "Failed to delete block");
+        toast.error(isAddingBlock ? "Block discarded" : "Failed to delete block");
         return;
       }
-      toast.success("Block deleted");
+      toast.success(isAddingBlock ? "Block discarded" : "Block deleted");
       onOpenChange(false);
     });
   }
@@ -135,9 +140,9 @@ export function BlockFormDialog({ block, templateId, open, onOpenChange, lifeAre
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{block ? "Edit block" : "Add block"}</DialogTitle>
+          <DialogTitle>{isAddingBlock ? "Add block" : block ? "Edit block" : "Add block"}</DialogTitle>
           <DialogDescription>
-            {block ? "Update this time block" : "Create a new time block in the template"}
+            {isAddingBlock ? "Create a new time block in the template" : block ? "Update this time block" : "Create a new time block in the template"}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
