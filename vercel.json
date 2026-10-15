@@ -15,6 +15,5 @@
     "NEXT_PUBLIC_APP_URL": {
       "value": "https://life-os.vercel.app"
     }
-  },
-  "nodeVersion": "22.19.0"
+  }
 }
