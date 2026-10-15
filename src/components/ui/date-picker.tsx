@@ -19,7 +19,7 @@ export function DatePicker({
   placeholder = "Pick a date",
   disabled,
   className,
-  clearable = true,
+  clearable = false,
   showMonthYear = false,
 }: {
   value: DateOnly | null;
@@ -52,7 +52,7 @@ export function DatePicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          {value && (
+          {(
             <div className="p-2 border-b border-border/60 flex items-center justify-between">
               <Calendar
                 mode="single"
