@@ -673,7 +673,6 @@ Playwright is configured for e2e (`npm run test:e2e`).
 | `rewards.test.ts` | Point calculations, idempotency keys, award builders |
 | `goals.test.ts` | `computeGoalProgress` for every method + no double counting |
 | `habits.test.ts` | Scheduling, daily/weekly streaks with grace, completion rate |
-| `analytics-ranges.test.ts` | ⚠️ References a missing module (see §21) |
 
 ---
 
@@ -734,10 +733,6 @@ Current known gaps / incomplete areas:
 
 - **`/analytics`** is a placeholder page with no queries and is not linked in navigation.
   `recharts` is installed but unused.
-- **Missing module:** `tests/unit/analytics-ranges.test.ts` imports
-  `@/lib/analytics/ranges`, which **does not exist** in the repository — this test
-  currently fails at import resolution. Either implement the module or remove/replace the
-  test.
 - **No integration or e2e test files** exist yet (configs are ready).
 - **`prisma/seed.ts`** is referenced by `package.json` but may not be implemented.
 - **Reminders & notifications** models and settings exist, but there is no scheduler/job
@@ -754,7 +749,7 @@ Current known gaps / incomplete areas:
 
 ### Suggested next steps
 
-1. Implement or remove `lib/analytics/ranges` and expand the analytics page.
+1. Expand the analytics page with useful reporting.
 2. Add integration tests (real Postgres via `TEST_DATABASE_URL`) for the recurrence
    materialization and rewards idempotency paths.
 3. Build a reminder dispatch mechanism (cron/edge job) and wire notifications.
