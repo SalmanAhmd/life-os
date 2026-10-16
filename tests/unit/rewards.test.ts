@@ -7,9 +7,13 @@ import {
   buildPerfectDayAward,
   buildTaskCompletionAward,
   habitRewardKey,
+  isHighPriority,
+  milestoneRewardKey,
   occurrenceRewardKey,
+  perfectDayRewardKey,
   pointsForTask,
   reversalKey,
+  taskCompletionReason,
   taskRewardKey,
 } from "@/lib/rewards/rules";
 
@@ -81,5 +85,76 @@ describe("perfect day awards", () => {
   it("award a fixed bonus when enabled", () => {
     const rules = { ...DEFAULT_POINT_RULES, perfectDayEnabled: true };
     expect(buildPerfectDayAward("2026-10-14", rules)?.points).toBe(20);
+  });
+});
+
+describe("isHighPriority", () => {
+  it("identifies high and urgent priorities", () => {
+    expect(isHighPriority("HIGH")).toBe(true);
+    expect(isHighPriority("URGENT")).toBe(true);
+  });
+
+  it("returns false for normal priorities", () => {
+    expect(isHighPriority("LOW")).toBe(false);
+    expect(isHighPriority("MEDIUM")).toBe(false);
+  });
+});
+
+describe("taskCompletionReason", () => {
+  it("uses HIGH_PRIORITY reason when bonus applies", () => {
+    expect(taskCompletionReason("HIGH", DEFAULT_POINT_RULES)).toBe(
+      "HIGH_PRIORITY_TASK_COMPLETED",
+    );
+  });
+
+  it("uses normal reason when bonus is disabled", () => {
+    const rules = { ...DEFAULT_POINT_RULES, pointsPerHighPriority: false };
+    expect(taskCompletionReason("URGENT", rules)).toBe("TASK_COMPLETED");
+  });
+
+  it("uses normal reason for non-high priorities", () => {
+    expect(taskCompletionReason("MEDIUM", DEFAULT_POINT_RULES)).toBe("TASK_COMPLETED");
+  });
+});
+
+describe("additional idempotency keys", () => {
+  it("builds milestone reward key", () => {
+    expect(milestoneRewardKey("m1")).toBe("milestone:m1");
+  });
+
+  it("builds perfect day reward key", () => {
+    expect(perfectDayRewardKey("2026-10-14")).toBe("perfectday:2026-10-14");
+  });
+});
+
+describe("buildTaskCompletionAward with occurrence", () => {
+  it("builds an award for an occurrence completion", () => {
+    const award = buildTaskCompletionAward(
+      { kind: "occurrence", occurrenceId: "o1" },
+      "MEDIUM",
+      DEFAULT_POINT_RULES,
+    );
+    expect(award).toMatchObject({
+      points: 10,
+      reason: "TASK_COMPLETED",
+      idempotencyKey: "occurrence:completed:o1",
+    });
+  });
+});
+
+describe("zero-point award edge cases", () => {
+  it("returns null for habit when pointsPerHabit is 0", () => {
+    const rules = { ...DEFAULT_POINT_RULES, pointsPerHabit: 0 };
+    expect(buildHabitAward("h1", "2026-10-14", rules)).toBeNull();
+  });
+
+  it("returns null for milestone when pointsPerMilestone is 0", () => {
+    const rules = { ...DEFAULT_POINT_RULES, pointsPerMilestone: 0 };
+    expect(buildMilestoneAward("m1", rules)).toBeNull();
+  });
+
+  it("returns null for perfect day when bonus is 0", () => {
+    const rules = { ...DEFAULT_POINT_RULES, perfectDayEnabled: true, perfectDayBonus: 0 };
+    expect(buildPerfectDayAward("2026-10-14", rules)).toBeNull();
   });
 });

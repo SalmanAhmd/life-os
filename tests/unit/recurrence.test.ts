@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type RecurrenceDefinition,
   countOccurrences,
+  emptyRecurrence,
   formatRecurrence,
   getNextOccurrence,
   getOccurrences,
@@ -204,5 +205,160 @@ describe("formatRecurrence", () => {
     expect(formatRecurrence(def({ frequency: "WEEKLY", byWeekday: [1, 3] }))).toContain("Mon");
     expect(formatRecurrence(def({ frequency: "MONTHLY", byMonthDay: 15 }))).toContain("15");
     expect(formatRecurrence(def({ frequency: "YEARLY", byMonth: 6 }))).toContain("June");
+  });
+
+  it("describes WEEKLY with interval > 1", () => {
+    expect(formatRecurrence(def({ frequency: "WEEKLY", interval: 2 }))).toBe("Every 2 weeks");
+  });
+
+  it("describes MONTHLY with nth weekday", () => {
+    const result = formatRecurrence(
+      def({ frequency: "MONTHLY", bySetPos: 2, byWeekdayForSetPos: 2 }),
+    );
+    expect(result).toContain("second");
+    expect(result).toContain("Tuesday");
+  });
+
+  it("describes MONTHLY with last weekday", () => {
+    const result = formatRecurrence(
+      def({ frequency: "MONTHLY", bySetPos: -1, byWeekdayForSetPos: 5 }),
+    );
+    expect(result).toContain("last");
+    expect(result).toContain("Friday");
+  });
+
+  it("describes YEARLY with interval > 1", () => {
+    expect(formatRecurrence(def({ frequency: "YEARLY", interval: 2, byMonth: 6 }))).toBe(
+      "Every 2 years in June",
+    );
+  });
+});
+
+describe("emptyRecurrence", () => {
+  it("creates a valid default recurrence", () => {
+    const result = emptyRecurrence("2026-10-14");
+    expect(result.frequency).toBe("WEEKLY");
+    expect(result.interval).toBe(1);
+    expect(result.startDate).toBe("2026-10-14");
+    expect(result.byWeekday).toEqual([3]); // Wednesday
+  });
+});
+
+describe("getOccurrences with limit", () => {
+  it("respects the limit parameter", () => {
+    const d = def({});
+    const result = getOccurrences(d, { from: "2026-01-01", to: "2026-01-31", limit: 5 });
+    expect(result).toHaveLength(5);
+  });
+
+  it("returns all occurrences when limit exceeds available dates", () => {
+    const d = def({});
+    const result = getOccurrences(d, { from: "2026-01-01", to: "2026-01-05", limit: 100 });
+    expect(result).toHaveLength(5);
+  });
+});
+
+describe("getNextOccurrence edge cases", () => {
+  it("skips excluded dates", () => {
+    const d = def({ frequency: "DAILY", exclusions: ["2026-01-02"] });
+    expect(getNextOccurrence(d, "2026-01-01")).toBe("2026-01-03");
+  });
+
+  it("returns null when beyond the horizon", () => {
+    const d = def({ frequency: "DAILY", endDate: "2026-01-10" });
+    expect(getNextOccurrence(d, "2026-01-10")).toBeNull();
+  });
+});
+
+describe("nthWeekdayOfMonth positive positions", () => {
+  it("finds the first weekday of a month", () => {
+    // First Monday of January 2026: Jan 5
+    expect(nthWeekdayOfMonth("2026-01-01", 1, 1)).toBe("2026-01-05");
+  });
+
+  it("finds the third weekday of a month", () => {
+    // Third Wednesday of January 2026: Jan 21
+    expect(nthWeekdayOfMonth("2026-01-01", 3, 3)).toBe("2026-01-21");
+  });
+});
+
+describe("countOccurrences exact count", () => {
+  it("counts exactly within a window", () => {
+    const d = def({ frequency: "DAILY" });
+    expect(countOccurrences(d, { from: "2026-01-01", to: "2026-01-10" })).toBe(10);
+  });
+
+  it("counts weekly occurrences", () => {
+    const d = def({ frequency: "WEEKLY", byWeekday: [1, 3, 5] });
+    expect(countOccurrences(d, { from: "2026-01-01", to: "2026-01-31" })).toBe(13);
+  });
+});
+
+describe("validateRecurrence additional branches", () => {
+  it("rejects invalid startDate format", () => {
+    expect(validateRecurrence(def({ startDate: "not-a-date" })).valid).toBe(false);
+  });
+
+  it("rejects invalid endDate format", () => {
+    expect(validateRecurrence(def({ endDate: "bad" })).valid).toBe(false);
+  });
+
+  it("rejects invalid byWeekday values", () => {
+    const d = def({ frequency: "WEEKLY", byWeekday: [7] });
+    expect(validateRecurrence(d).valid).toBe(false);
+  });
+
+  it("rejects invalid byMonthDay values", () => {
+    expect(validateRecurrence(def({ byMonthDay: 0 })).valid).toBe(false);
+    expect(validateRecurrence(def({ byMonthDay: 32 })).valid).toBe(false);
+  });
+
+  it("rejects invalid byWeekdayForSetPos values", () => {
+    expect(validateRecurrence(def({ byWeekdayForSetPos: 7 })).valid).toBe(false);
+  });
+
+  it("rejects invalid byMonth values", () => {
+    const d = def({ frequency: "YEARLY", byMonth: 13 });
+    expect(validateRecurrence(d).valid).toBe(false);
+  });
+
+  it("rejects invalid exclusion dates", () => {
+    const d = def({ exclusions: ["not-a-date"] });
+    expect(validateRecurrence(d).valid).toBe(false);
+  });
+
+  it("rejects non-integer interval", () => {
+    expect(validateRecurrence(def({ interval: 1.5 })).valid).toBe(false);
+  });
+
+  it("rejects non-integer count", () => {
+    expect(validateRecurrence(def({ count: 2.5 })).valid).toBe(false);
+  });
+});
+
+describe("MONTHLY fallback to startDate day-of-month", () => {
+  it("uses the day from startDate when byMonthDay and bySetPos are null", () => {
+    const d = def({ frequency: "MONTHLY", startDate: "2026-01-15" });
+    expect(getOccurrences(d, { from: "2026-01-01", to: "2026-03-31" })).toEqual([
+      "2026-01-15",
+      "2026-02-15",
+      "2026-03-15",
+    ]);
+  });
+});
+
+describe("YEARLY with bySetPos", () => {
+  it("supports nth weekday of a specific month", () => {
+    const d = def({
+      frequency: "YEARLY",
+      startDate: "2026-01-01",
+      byMonth: 6,
+      bySetPos: 2,
+      byWeekdayForSetPos: 2, // 2nd Tuesday of June
+    });
+    expect(getOccurrences(d, { from: "2026-01-01", to: "2027-12-31" })).toEqual([
+      "2026-06-09",
+      "2027-06-08",
+    ]);
   });
 });

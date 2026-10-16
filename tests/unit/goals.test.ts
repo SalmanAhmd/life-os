@@ -117,3 +117,101 @@ describe("computeGoalProgress", () => {
     expect(goalB.percent).toBe(100);
   });
 });
+
+describe("computeGoalProgress — additional coverage", () => {
+  it("returns 0 for an archived goal", () => {
+    const result = computeGoalProgress({
+      metricType: "NUMERIC",
+      status: "ARCHIVED",
+      targetValue: 100,
+      currentValue: 50,
+      linkedTasks: [],
+      milestones: [],
+      subGoals: [],
+    });
+    expect(result.percent).toBe(0);
+    expect(result.method).toBe("completed");
+  });
+
+  it("handles HABIT_BASED metric type as NUMERIC fallback", () => {
+    const result = computeGoalProgress({
+      metricType: "HABIT_BASED",
+      status: "IN_PROGRESS",
+      targetValue: 10,
+      currentValue: 5,
+      linkedTasks: [],
+      milestones: [],
+      subGoals: [],
+    });
+    expect(result.percent).toBe(50);
+    expect(result.method).toBe("value");
+  });
+
+  it("returns 0 when targetValue is zero or negative", () => {
+    expect(
+      computeGoalProgress({
+        metricType: "NUMERIC",
+        status: "IN_PROGRESS",
+        targetValue: 0,
+        currentValue: 5,
+        linkedTasks: [],
+        milestones: [],
+        subGoals: [],
+      }).percent,
+    ).toBe(0);
+  });
+
+  it("handles currentValue of zero", () => {
+    const result = computeGoalProgress({
+      metricType: "NUMERIC",
+      status: "IN_PROGRESS",
+      targetValue: 100,
+      currentValue: 0,
+      linkedTasks: [],
+      milestones: [],
+      subGoals: [],
+    });
+    expect(result.percent).toBe(0);
+  });
+
+  it("handles null currentValue as zero", () => {
+    const result = computeGoalProgress({
+      metricType: "NUMERIC",
+      status: "IN_PROGRESS",
+      targetValue: 100,
+      currentValue: null,
+      linkedTasks: [],
+      milestones: [],
+      subGoals: [],
+    });
+    expect(result.percent).toBe(0);
+  });
+
+  it("falls back to milestones for MANUAL goals without target", () => {
+    const result = computeGoalProgress({
+      metricType: "MANUAL",
+      status: "IN_PROGRESS",
+      targetValue: null,
+      currentValue: null,
+      linkedTasks: [],
+      milestones: [{ completed: true }, { completed: true }, { completed: false }],
+      subGoals: [],
+    });
+    expect(result.percent).toBe(67);
+    expect(result.method).toBe("milestones");
+  });
+
+  it("returns empty method when nothing is available", () => {
+    const result = computeGoalProgress({
+      metricType: "MANUAL",
+      status: "NOT_STARTED",
+      targetValue: null,
+      currentValue: null,
+      linkedTasks: [],
+      milestones: [],
+      subGoals: [],
+    });
+    expect(result.method).toBe("empty");
+    expect(result.percent).toBe(0);
+  });
+});

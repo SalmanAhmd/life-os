@@ -4,6 +4,7 @@ import {
   type ScheduleConfig,
   effectiveWorkingWeekdays,
   getWorkingDaysInRange,
+  isNonWorkingDay,
   isSaturdayWorking,
   isWorkingDay,
   nthSaturdayOfMonth,
@@ -128,5 +129,50 @@ describe("ranges and previews", () => {
     expect(effectiveWorkingWeekdays("2026-10-05", 1, c)).toEqual([1, 2, 3, 4, 5]);
     // Week of Oct 12 2026: Sat Oct 17 is the 3rd Saturday → working.
     expect(effectiveWorkingWeekdays("2026-10-12", 1, c)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+});
+
+describe("isNonWorkingDay", () => {
+  it("returns true for non-working days", () => {
+    const c = config({ workingDays: [1, 2, 3, 4, 5] });
+    expect(isNonWorkingDay("2026-10-17", c)).toBe(true); // Saturday
+    expect(isNonWorkingDay("2026-10-18", c)).toBe(true); // Sunday
+  });
+
+  it("returns false for working days", () => {
+    const c = config({ workingDays: [1, 2, 3, 4, 5] });
+    expect(isNonWorkingDay("2026-10-14", c)).toBe(false); // Wednesday
+  });
+});
+
+describe("getWorkingDaysInRange edge cases", () => {
+  it("returns an empty array when from > to", () => {
+    expect(getWorkingDaysInRange("2026-10-18", "2026-10-12", config())).toEqual([]);
+  });
+
+  it("handles a single working day", () => {
+    expect(getWorkingDaysInRange("2026-10-14", "2026-10-14", config())).toEqual(["2026-10-14"]);
+  });
+
+  it("handles a single non-working day", () => {
+    expect(getWorkingDaysInRange("2026-10-17", "2026-10-17", config())).toEqual([]);
+  });
+});
+
+describe("workingDayCountForMonth with different rules", () => {
+  it("counts correctly with ALL_WORKING Saturdays", () => {
+    const c = config({ saturdayRule: "ALL_WORKING" });
+    // October 2026: 22 weekdays + 5 Saturdays = 27
+    expect(workingDayCountForMonth(2026, 10, c)).toBe(27);
+  });
+
+  it("counts correctly with ALL_OFF Saturdays (default)", () => {
+    // October 2026: 22 weekdays
+    expect(workingDayCountForMonth(2026, 10, config())).toBe(22);
+  });
+
+  it("counts correctly for a leap year February", () => {
+    // February 2024: 21 weekdays + 4 Saturdays = 21 (ALL_OFF)
+    expect(workingDayCountForMonth(2024, 2, config())).toBe(21);
   });
 });
