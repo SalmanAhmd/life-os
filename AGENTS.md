@@ -115,7 +115,10 @@ Pure functions, no I/O, heavily unit-tested:
 
 - `npm run build` runs `prisma generate` automatically (also in `postinstall`).
 - Dev migrations: `npm run db:migrate` (interactive, needs TTY). Non-interactive: author `migration.sql` manually and run `prisma migrate deploy`.
-- `prisma/seed.ts` is referenced by `package.json` but may not be implemented yet.
+- `prisma/seed.ts` builds a two-year demo account (`npm run db:seed`). It deletes and
+  recreates only the demo user (default `demo@lifeos.dev` / `demo1234`), so it is safe to
+  re-run against a shared dev database. Override with `DEMO_EMAIL`, `DEMO_PASSWORD`,
+  `DEMO_TIMEZONE`, `DEMO_NAME` and `DEMO_SEED`.
 
 ## Known gaps
 

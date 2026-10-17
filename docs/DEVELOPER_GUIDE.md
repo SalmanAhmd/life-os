@@ -136,7 +136,7 @@ life-os/
 ├── prisma/
 │   ├── schema.prisma            # data model (Postgres)
 │   ├── migrations/              # SQL migrations
-│   └── seed.ts                  # seed script (referenced by package.json)
+│   └── seed.ts                  # two-year demo-data seeder (used by db:seed)
 ├── src/
 │   ├── app/                     # Next.js App Router
 │   │   ├── (auth)/              # sign-in, sign-up (marketing split layout)
@@ -660,8 +660,11 @@ integration tests).
     `prisma migrate deploy`.
   - Reset: `npm run db:reset`; inspect: `npm run db:studio`.
 
-> `prisma/seed.ts` is referenced by `package.json`; confirm it exists before running
-> `db:seed` (it may be pending implementation).
+> `prisma/seed.ts` populates a two-year demo account across every feature. It is
+> **reset-based and idempotent for the demo user only**: it deletes and recreates the
+> user identified by `DEMO_EMAIL` (default `demo@lifeos.dev`, password `demo1234`), then
+> regenerates deterministic sample data anchored to today. Re-running it never touches
+> other users. See the seeder's header comment for the full design notes.
 
 ---
 
@@ -747,7 +750,9 @@ Current known gaps / incomplete areas:
   Broader reporting (configurable ranges, per-life-area breakdowns, exports) is not
   implemented yet.
 - **No integration or e2e test files** exist yet (configs are ready).
-- **`prisma/seed.ts`** is referenced by `package.json` but may not be implemented.
+- **`prisma/seed.ts`** creates two years of demo data for a single demo account
+  (tasks, occurrences, calendar events, timetable, projects, goals, habits, notes,
+  journal and the reward ledger). It is a demo/dev convenience, not production data.
 - **Reminders & notifications** models and settings exist, but there is no scheduler/job
   to actually dispatch them; the header notification bell is non-functional.
 - **`GoalMetricType.HABIT_BASED`** is reserved — it currently behaves like `NUMERIC`; no
@@ -767,4 +772,4 @@ Current known gaps / incomplete areas:
    materialization and rewards idempotency paths.
 3. Build a reminder dispatch mechanism (cron/edge job) and wire notifications.
 4. Implement `HABIT_BASED` goal progress and the habit↔goal link.
-5. Write a real `prisma/seed.ts` and a production README.
+5. Write a production README (the demo seeder already covers local sample data).
