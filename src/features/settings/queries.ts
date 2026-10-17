@@ -1,23 +1,9 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import type { DateOnly } from "@/lib/dates";
+import { toScheduleConfig, type ScheduleConfig } from "@/features/settings/schedule-config";
 
-export interface Holiday {
-  date: DateOnly;
-  name: string;
-}
-
-export interface ScheduleConfig {
-  saturdayRule: "ALL_OFF" | "ALTERNATE_OFF" | "SECOND_FOURTH_OFF" | "ALL_WORKING" | "CUSTOM";
-  workingDays: number[];
-  alternateSaturdayWeeks: number;
-  alternateSaturdayAnchor: DateOnly | null;
-  dayStartMinutes: number;
-  dayEndMinutes: number;
-  holidays: Holiday[];
-  exceptionalWorkdays: DateOnly[];
-}
+export type { Holiday, ScheduleConfig } from "@/features/settings/schedule-config";
 
 export interface PreferencesData {
   theme: string;
@@ -78,31 +64,11 @@ export async function getPreferences(userId: string): Promise<PreferencesData | 
   return prefs;
 }
 
-function parseJson<T>(val: unknown, fallback: T): T {
-  if (!val) return fallback;
-  try {
-    return JSON.parse(String(val)) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 export async function getSchedule(userId: string): Promise<ScheduleConfig | null> {
   const sched = await db.scheduleSettings.findUnique({
     where: { userId },
   });
-  if (!sched) return null;
-
-  return {
-    saturdayRule: sched.saturdayRule as ScheduleConfig["saturdayRule"],
-    workingDays: sched.workingDays as number[],
-    alternateSaturdayWeeks: sched.alternateSaturdayWeeks,
-    alternateSaturdayAnchor: sched.alternateSaturdayAnchor as DateOnly | null,
-    dayStartMinutes: sched.dayStartMinutes,
-    dayEndMinutes: sched.dayEndMinutes,
-    holidays: parseJson<Holiday[]>(sched.holidays, []),
-    exceptionalWorkdays: parseJson<DateOnly[]>(sched.exceptionalWorkdays, []),
-  };
+  return sched ? toScheduleConfig(sched) : null;
 }
 
 export async function getNotificationPreferences(userId: string): Promise<PreferencesData | null> {

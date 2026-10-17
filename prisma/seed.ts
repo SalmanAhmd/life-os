@@ -564,7 +564,7 @@ async function main(): Promise<void> {
       dayStartMinutes: 8 * 60,
       dayEndMinutes: 18 * 60,
       holidays,
-      exceptionalWorkdays: [{ date: addDays(TODAY, 21), name: "Team offsite" }],
+      exceptionalWorkdays: [addDays(TODAY, 21)],
     },
   });
 
