@@ -108,22 +108,30 @@ export function CalendarView({
     allDay: false,
   });
 
+  // The active range's items are server-rendered for the initial month range,
+  // then fetched on demand. We track the range the *currently held* `items`
+  // belong to (rather than a set of "already fetched" ranges) so switching back
+  // to a previously visited tab reloads its data instead of leaving the other
+  // tab's items on screen.
   const initialRange = rangeFor("month", today);
-  const fetchedRef = useRef<Set<string>>(
-    new Set([`${initialRange.from}:${initialRange.to}`]),
-  );
+  const loadedRangeRef = useRef(`${initialRange.from}:${initialRange.to}`);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     const { from, to } = rangeFor(mode, cursor);
     const key = `${from}:${to}`;
-    if (fetchedRef.current.has(key)) return;
-    fetchedRef.current.add(key);
+    if (key === loadedRangeRef.current) return;
+
+    const requestId = ++requestIdRef.current;
     startTransition(async () => {
       const result = await fetchCalendarItems(from, to);
+      // A newer range was requested while this one was in flight — drop it.
+      if (requestId !== requestIdRef.current) return;
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
+      loadedRangeRef.current = key;
       setItems(result.data);
     });
   }, [mode, cursor]);
@@ -191,12 +199,7 @@ export function CalendarView({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate(-1)}
-            aria-label="Previous"
-          >
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label="Previous">
             <ChevronLeft className="size-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={() => setCursor(today)}>
@@ -444,7 +447,13 @@ function MonthCell({
       </div>
       <div className="flex flex-col gap-0.5">
         {visible.map((item) => (
-          <ItemChip key={item.id} item={item} timezone={timezone} variant="compact" onEdit={onEdit} />
+          <ItemChip
+            key={item.id}
+            item={item}
+            timezone={timezone}
+            variant="compact"
+            onEdit={onEdit}
+          />
         ))}
         {hidden > 0 ? (
           <span className="text-muted-foreground px-1 text-[11px]">+{hidden} more</span>
@@ -465,10 +474,10 @@ function ItemChip({
   variant: "compact" | "block" | "row";
   onEdit: (item: CalendarItem) => void;
 }) {
-  const color =
-    item.color ?? (item.kind === "event" ? "#6366f1" : "#64748b");
+  const color = item.color ?? (item.kind === "event" ? "#6366f1" : "#64748b");
   const start = startTimeLabel(item, timezone);
-  const end = item.allDay || !item.end ? null : formatInstant(new Date(item.end), timezone, "HH:mm");
+  const end =
+    item.allDay || !item.end ? null : formatInstant(new Date(item.end), timezone, "HH:mm");
 
   const shared = cn(
     "flex w-full items-center gap-1.5 overflow-hidden rounded-md border-l-2 text-left text-xs",
