@@ -116,9 +116,13 @@ Pure functions, no I/O, heavily unit-tested:
 - `npm run build` runs `prisma generate` automatically (also in `postinstall`).
 - Dev migrations: `npm run db:migrate` (interactive, needs TTY). Non-interactive: author `migration.sql` manually and run `prisma migrate deploy`.
 - `prisma/seed.ts` builds a two-year demo account (`npm run db:seed`). It deletes and
-  recreates only the demo user (default `demo@lifeos.dev` / `demo1234`), so it is safe to
-  re-run against a shared dev database. Override with `DEMO_EMAIL`, `DEMO_PASSWORD`,
-  `DEMO_TIMEZONE`, `DEMO_NAME` and `DEMO_SEED`.
+  recreates only the demo user (default `demo@lifeos.dev` / `demo1234`), then regenerates
+  deterministic sample data anchored to today. Override the account with `DEMO_EMAIL`,
+  `DEMO_PASSWORD`, `DEMO_TIMEZONE`, `DEMO_NAME` and `DEMO_SEED`.
+- The seeder is **local-only**: it refuses to run unless `DATABASE_URL` points at
+  `localhost`/`127.0.0.1` (set `SEED_ALLOW_REMOTE=1` to override). Env is resolved like
+  `next dev` via `prisma/seed-env.ts`, which must be imported *before* `@prisma/client`
+  (Prisma eagerly loads `.env` on import and `@next/env` never overrides a set value).
 
 ## Known gaps
 

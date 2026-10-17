@@ -30,14 +30,11 @@
  *
  * Credentials are printed at the end.
  */
+// Must be imported before `@prisma/client` so env is resolved like `next dev`
+// (see `seed-env.ts`). Keep this the very first import.
+import "./seed-env";
+
 import { randomUUID } from "node:crypto";
-
-import { loadEnvConfig } from "@next/env";
-
-// Load .env / .env.local the way Next does, so DATABASE_URL is available even
-// when the script is run directly (`tsx prisma/seed.ts`) rather than through
-// the Prisma CLI (which loads env itself).
-loadEnvConfig(process.cwd());
 
 import { PrismaClient, type Prisma } from "@prisma/client";
 
@@ -455,8 +452,50 @@ const JOURNAL_TAGS = ["reflection", "gratitude", "growth", "fitness", "family"];
 // Seed
 // ---------------------------------------------------------------------------
 
+/**
+ * Returns the host of a Postgres connection string, or a short label when the
+ * URL is missing/unparseable. Used only for the startup banner.
+ */
+function databaseHost(url: string | undefined): string {
+  if (!url) return "(unset)";
+  try {
+    return new URL(url).host;
+  } catch {
+    return "(unparseable)";
+  }
+}
+
+/**
+ * The seeder resets the demo account (delete + recreate), so it is deliberately
+ * pinned to a **local** database — a stray run must never wipe data in a shared
+ * or remote environment. Set `SEED_ALLOW_REMOTE=1` to override the guard.
+ */
+function assertLocalDatabase(url: string | undefined): void {
+  if (process.env.SEED_ALLOW_REMOTE === "1") return;
+  if (!url) {
+    throw new Error("DATABASE_URL is not set — cannot seed.");
+  }
+  const host = databaseHost(url);
+  const isLocal =
+    host === "localhost" ||
+    host.startsWith("localhost:") ||
+    host === "127.0.0.1" ||
+    host.startsWith("127.0.0.1:") ||
+    host === "[::1]" ||
+    host.startsWith("[::1]:");
+  if (!isLocal) {
+    throw new Error(
+      `Refusing to seed non-local database "${host}". ` +
+        "Seed the local database, or set SEED_ALLOW_REMOTE=1 to override.",
+    );
+  }
+}
+
 async function main(): Promise<void> {
+  assertLocalDatabase(process.env.DATABASE_URL);
+
   console.log(`\nSeeding demo account "${DEMO_EMAIL}"`);
+  console.log(`  database ${databaseHost(process.env.DATABASE_URL)}`);
   console.log(`  window  ${HISTORY_START} → ${FUTURE_END}   (tz ${TIMEZONE})\n`);
 
   // --- 1. Reset the previous demo account (cascade removes all children) ---

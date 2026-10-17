@@ -665,6 +665,11 @@ integration tests).
 > user identified by `DEMO_EMAIL` (default `demo@lifeos.dev`, password `demo1234`), then
 > regenerates deterministic sample data anchored to today. Re-running it never touches
 > other users. See the seeder's header comment for the full design notes.
+>
+> The seeder is **local-only** — it aborts unless `DATABASE_URL` targets
+> `localhost`/`127.0.0.1` (override with `SEED_ALLOW_REMOTE=1`). Env is loaded by
+> `prisma/seed-env.ts`, imported before `@prisma/client` so `.env*` resolution matches
+> `next dev`; do not import Prisma before it or the seeder will target the wrong database.
 
 ---
 
