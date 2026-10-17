@@ -100,13 +100,14 @@ Pure functions, no I/O, heavily unit-tested:
 - `rewards/rules.ts` — point calculations + idempotency keys
 - `goals/progress.ts` — `computeGoalProgress`
 - `habits/` — scheduling, streaks, completion rates
+- `analytics/series.ts` — chart series normalisation (`zeroFillDays`) + mood scoring
 - `action-result.ts` — server action result contract
 - `db.ts` — Prisma singleton (cached on `globalThis` for hot-reload)
 - `env.ts` — server-only Zod env validation (`getServerEnv`)
 
 ## Testing
 
-- **Unit** (`tests/unit/**/*.test.ts`): node env, no DB needed.
+- **Unit** (`tests/unit/**/*.test.{ts,tsx}`): node env by default, no DB needed. Component tests (`.test.tsx`) opt into jsdom with a `// @vitest-environment jsdom` docblock and use `@testing-library/react` (call `cleanup` yourself — RTL aut-cleanup needs `globals: true`, which is off).
 - **Integration** (`tests/integration/**/*.test.ts`): requires `TEST_DATABASE_URL` pointing at a separate Postgres database (tests truncate tables). Runs in `pool: forks`, `singleFork: true`, 30s timeout.
 - **E2E**: Playwright (`npm run test:e2e`).
 
@@ -118,7 +119,7 @@ Pure functions, no I/O, heavily unit-tested:
 
 ## Known gaps
 
-- `/analytics` is a stub (not in nav, `recharts` installed but unused).
+- `/analytics` reports 30-day trends (tasks, points, habit check-ins, mood, goals); it has no configurable range or per-life-area breakdown yet.
 - No integration or e2e test files exist yet (configs are ready).
 - Reminders/notifications have no dispatch scheduler.
 - `GoalMetricType.HABIT_BASED` behaves like `NUMERIC` (no habit↔goal link).

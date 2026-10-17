@@ -1,17 +1,33 @@
 import type { Metadata } from "next";
 
 import { requireUser } from "@/lib/auth/current-user";
-import { listRewardTransactions, getPointsBalance } from "@/features/rewards/queries";
+import { addDays, todayDateOnly } from "@/lib/dates";
+import { zeroFillDays } from "@/lib/analytics/series";
+import { TrendChart } from "@/components/charts/trend-chart";
+import { listRewardTransactions, getPointsBalance, pointsByDay } from "@/features/rewards/queries";
 
 export const metadata: Metadata = { title: "Rewards" };
 
+/** Days of points history shown in the trend chart. */
+const TREND_DAYS = 30;
+
 export default async function RewardsPage() {
   const user = await requireUser();
+  const today = todayDateOnly(user.timezone);
+  const from = addDays(today, -(TREND_DAYS - 1));
 
-  const [balance, transactions] = await Promise.all([
+  const [balance, transactions, rawPoints] = await Promise.all([
     getPointsBalance(user.id),
     listRewardTransactions(user.id, { limit: 50 }),
+    pointsByDay(user.id, from, today),
   ]);
+
+  // `pointsByDay` only returns days with activity; pad it so quiet days read as 0.
+  const pointsSeries = zeroFillDays(
+    from,
+    today,
+    rawPoints.map((point) => ({ date: point.date, value: point.points })),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,6 +43,19 @@ export default async function RewardsPage() {
         <p className="text-3xl font-semibold">{balance}</p>
       </div>
 
+      <section className="border-border/70 bg-card flex flex-col gap-4 rounded-lg border p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-medium">Points earned</h2>
+          <p className="text-muted-foreground text-xs">Per day · last {TREND_DAYS} days</p>
+        </div>
+        <TrendChart
+          data={pointsSeries}
+          color="var(--chart-2)"
+          valueLabel="Points"
+          emptyLabel="Earn points by completing tasks, habits and milestones."
+        />
+      </section>
+
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">Recent transactions</h2>
         {transactions.length === 0 ? (
@@ -40,11 +69,11 @@ export default async function RewardsPage() {
               >
                 <div className="flex flex-col gap-1">
                   <p className="text-sm font-medium">{tx.reason.replaceAll("_", " ")}</p>
-                  {tx.note ? (
-                    <p className="text-muted-foreground text-xs">{tx.note}</p>
-                  ) : null}
+                  {tx.note ? <p className="text-muted-foreground text-xs">{tx.note}</p> : null}
                 </div>
-                <span className="text-sm font-semibold">{tx.points > 0 ? `+${tx.points}` : tx.points}</span>
+                <span className="text-sm font-semibold">
+                  {tx.points > 0 ? `+${tx.points}` : tx.points}
+                </span>
               </li>
             ))}
           </ul>

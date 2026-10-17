@@ -36,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard", label: "Dashboard", icon: Home },
       { href: "/today", label: "Today", icon: CircleCheck },
       { href: "/calendar", label: "Calendar", icon: Calendar },
+      { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {

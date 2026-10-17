@@ -64,7 +64,7 @@ notes, a journal, and a rewards ledger — all grouped by user-defined **life ar
 | Toasts | **sonner** |
 | Theming | **next-themes** |
 | Dates | **date-fns** + **date-fns-tz**, plus custom `DateOnly` helpers |
-| Charts | **recharts** (installed; analytics page is currently a stub) |
+| Charts | **recharts** (see `src/components/charts/`), themed via CSS `--chart-*` variables |
 | Auth | **NextAuth v5 (Auth.js)** — Credentials provider, JWT sessions, Prisma adapter |
 | Passwords | **bcryptjs** (cost 12) |
 | ORM | **Prisma 6.19** on **PostgreSQL** |
@@ -148,11 +148,12 @@ life-os/
 │   │   └── page.tsx             # public landing page
 │   ├── components/
 │   │   ├── app-shell/           # sidebar, header, command palette, user menu
+│   │   ├── charts/              # shared recharts wrappers (trend, distribution)
 │   │   └── ui/                  # shadcn/ui components
 │   ├── features/                # feature-sliced modules (see §6)
-│   │   ├── auth/ calendar/ dashboard/ goals/ habits/ journal/
-│   │   ├── life-areas/ notes/ onboarding/ projects/ rewards/
-│   │   └── settings/ tasks/ timetable/
+│   │   ├── analytics/ auth/ calendar/ dashboard/ goals/ habits/
+│   │   ├── journal/ life-areas/ notes/ onboarding/ projects/
+│   │   └── rewards/ settings/ tasks/ timetable/
 │   ├── lib/                     # pure domain + infrastructure (see §7)
 │   ├── types/                   # ambient types (next-auth.d.ts)
 │   └── middleware.ts            # edge auth gate (redirects only)
@@ -242,6 +243,7 @@ src/features/tasks/
 | **life-areas** | CRUD, archive, reorder, colour + icon | `@@unique([userId, name])`; delete → `SetNull` |
 | **settings** | Profile, preferences, schedule, notifications | Feeds reward rules + schedule config |
 | **rewards** | Ledger + balance; points rules | Idempotent, append-only ledger (see §11) |
+| **analytics** | Cross-module reporting page + charts | `queries.ts` builds plain day-bucketed series; `lib/analytics/series.ts` normalises them |
 | **onboarding** | First-run form; provisions defaults | `provisionUser` idempotent seed |
 | **auth** | Credentials sign-up/in | bcrypt; JWT sessions |
 
@@ -288,6 +290,7 @@ All in `src/lib/`; pure functions, no I/O, heavily unit-tested.
 | `rewards/rules.ts` | Point calculations + idempotency keys | `pointsForTask`, `buildTaskCompletionAward`, `taskRewardKey`, `reversalKey` |
 | `goals/progress.ts` | Goal progress calculator | `computeGoalProgress` |
 | `habits/index.ts` | Habit scheduling, streaks, rates | `isScheduledOn`, `computeStreaks`, `completionRate` |
+| `analytics/series.ts` | Chart series normalisation + mood scoring | `zeroFillDays`, `moodScore`, `MOOD_SCORES` |
 | `life-areas/defaults.ts` | Seeded starter life areas | `DEFAULT_LIFE_AREAS` |
 | `action-result.ts` | Server action result contract | `ok`, `fail`, `zodFieldErrors` |
 | `db.ts` | Prisma singleton | `db` |
@@ -560,6 +563,11 @@ type RecurrenceDefinition = {
   never Prisma model instances.
 - **Empty & loading states:** each view provides an empty state; route-level
   `loading.tsx`, `error.tsx`, and `not-found.tsx` exist under `src/app/`.
+- **Charts:** recharts wrappers live in `src/components/charts/` (`TrendChart`,
+  `DistributionChart`) and are always client components. Colors are passed as theme
+  variables (e.g. `var(--chart-1)`), and the server is responsible for assembling the
+  series — client components only receive plain `{ date, value }[]` arrays. Series that
+  span a fixed range are padded with `zeroFillDays` so quiet days render as 0.
 
 ---
 
@@ -570,7 +578,7 @@ type RecurrenceDefinition = {
 - **`AppShell`**: desktop collapsible sidebar (persisted in `localStorage` under
   `lifeos.sidebar.collapsed`), mobile `Sheet` drawer, sticky header, content `main`.
 - **Navigation groups** (`components/app-shell/nav-config.ts`):
-  - **Overview** — `/dashboard`, `/today`, `/calendar`
+  - **Overview** — `/dashboard`, `/today`, `/calendar`, `/analytics`
   - **Plan** — `/timetable`, `/tasks`, `/projects`, `/goals`, `/habits`
   - **Reflect** — `/notes`, `/journal`, `/rewards`
   - **Settings** — `/settings/profile`, `/settings/life-areas`,
@@ -586,11 +594,10 @@ type RecurrenceDefinition = {
 | `/` | Public landing |
 | `/sign-in`, `/sign-up` | Auth |
 | `/onboarding` | First-run setup |
-| `/dashboard`, `/today`, `/calendar` | Overview |
+| `/dashboard`, `/today`, `/calendar`, `/analytics` | Overview |
 | `/timetable`, `/tasks`, `/projects`, `/goals`, `/habits` | Plan |
 | `/notes`, `/journal`, `/rewards` | Reflect |
 | `/settings/(profile\|life-areas\|preferences\|schedule\|notifications)` | Settings |
-| `/analytics` | **Stub** (not in nav) |
 
 ---
 
@@ -731,8 +738,9 @@ Playwright is configured for e2e (`npm run test:e2e`).
 
 Current known gaps / incomplete areas:
 
-- **`/analytics`** is a placeholder page with no queries and is not linked in navigation.
-  `recharts` is installed but unused.
+- **`/analytics`** reports 30-day trends for tasks, habits, points, mood and goals.
+  Broader reporting (configurable ranges, per-life-area breakdowns, exports) is not
+  implemented yet.
 - **No integration or e2e test files** exist yet (configs are ready).
 - **`prisma/seed.ts`** is referenced by `package.json` but may not be implemented.
 - **Reminders & notifications** models and settings exist, but there is no scheduler/job
@@ -749,7 +757,7 @@ Current known gaps / incomplete areas:
 
 ### Suggested next steps
 
-1. Expand the analytics page with useful reporting.
+1. Extend analytics with configurable date ranges and per-life-area breakdowns.
 2. Add integration tests (real Postgres via `TEST_DATABASE_URL`) for the recurrence
    materialization and rewards idempotency paths.
 3. Build a reminder dispatch mechanism (cron/edge job) and wire notifications.
