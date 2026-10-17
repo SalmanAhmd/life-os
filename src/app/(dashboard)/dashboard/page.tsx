@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { requireUser } from "@/lib/auth/current-user";
 import { addDays, todayDateOnly } from "@/lib/dates";
-import { TrendChart } from "@/components/charts/trend-chart";
+import { LazyTrendChart } from "@/components/charts/lazy-trend-chart";
 import { getTaskCompletionSeries } from "@/features/analytics/queries";
 import { getTaskStats } from "@/features/tasks/queries";
 import { getPointsBalance } from "@/features/rewards/queries";
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
           <h2 className="text-sm font-medium">Tasks completed</h2>
           <p className="text-muted-foreground text-xs">Last {TREND_DAYS} days</p>
         </div>
-        <TrendChart
+        <LazyTrendChart
           data={completions}
           valueLabel="Completed"
           emptyLabel="Complete a task to start building your trend."

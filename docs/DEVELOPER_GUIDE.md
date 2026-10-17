@@ -568,6 +568,11 @@ type RecurrenceDefinition = {
   variables (e.g. `var(--chart-1)`), and the server is responsible for assembling the
   series — client components only receive plain `{ date, value }[]` arrays. Series that
   span a fixed range are padded with `zeroFillDays` so quiet days render as 0.
+- **Lazy charts:** always import the `Lazy*` wrappers (`LazyTrendChart`,
+  `LazyDistributionChart`, `LazyGoalsProgressChart`) from the feature/page, never the
+  chart components directly. They `React.lazy`-load recharts into a separate chunk so it
+  stays out of the route's initial JS (~130 kB gzip), showing a height-matched
+  `ChartSkeleton` meanwhile. The wrappers take the same props as the chart they wrap.
 
 ---
 

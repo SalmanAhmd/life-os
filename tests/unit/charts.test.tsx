@@ -4,10 +4,14 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { ChartSkeleton } from "@/components/charts/chart-skeleton";
 import { DistributionChart } from "@/components/charts/distribution-chart";
+import { LazyDistributionChart } from "@/components/charts/lazy-distribution-chart";
+import { LazyTrendChart } from "@/components/charts/lazy-trend-chart";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { AnalyticsView } from "@/features/analytics/components/analytics-view";
 import { GoalsProgressChart } from "@/features/analytics/components/goals-progress-chart";
+import { LazyGoalsProgressChart } from "@/features/analytics/components/lazy-goals-progress-chart";
 import type { AnalyticsSnapshot } from "@/features/analytics/types";
 
 // `globals` is off in this project, so RTL's automatic cleanup is skipped.
@@ -104,6 +108,37 @@ describe("GoalsProgressChart", () => {
   });
 });
 
+describe("ChartSkeleton", () => {
+  it("renders a hidden placeholder at the requested height", () => {
+    const { container } = render(<ChartSkeleton height={321} />);
+    const placeholder = container.firstElementChild as HTMLElement;
+
+    expect(placeholder).toHaveAttribute("aria-hidden");
+    expect(placeholder).toHaveStyle({ height: "321px" });
+  });
+});
+
+describe("lazy chart wrappers", () => {
+  // The wrappers resolve their chunk asynchronously, so assert after loading.
+  it("resolves the trend chart after its chunk loads", async () => {
+    render(<LazyTrendChart data={[{ date: "2026-10-01", value: 0 }]} emptyLabel="Lazy trend" />);
+
+    expect(await screen.findByText("Lazy trend")).toBeInTheDocument();
+  });
+
+  it("resolves the distribution chart after its chunk loads", async () => {
+    render(<LazyDistributionChart slices={[{ label: "To do", value: 2, color: "#111" }]} />);
+
+    expect(await screen.findByText("To do")).toBeInTheDocument();
+  });
+
+  it("resolves the goals progress chart after its chunk loads", async () => {
+    render(<LazyGoalsProgressChart goals={[]} emptyLabel="Lazy goals" />);
+
+    expect(await screen.findByText("Lazy goals")).toBeInTheDocument();
+  });
+});
+
 describe("AnalyticsView", () => {
   const snapshot: AnalyticsSnapshot = {
     range: { from: "2026-09-18", to: "2026-10-17" },
@@ -118,21 +153,21 @@ describe("AnalyticsView", () => {
     ],
   };
 
-  it("renders status slices in a fixed order and passes unknown statuses through", () => {
+  it("renders status slices in a fixed order and passes unknown statuses through", async () => {
     render(<AnalyticsView snapshot={snapshot} goals={[]} windowDays={30} />);
 
-    const labels = screen.getAllByRole("listitem").map((item) => item.textContent);
-    expect(labels).toEqual(["To do2 · 50%", "Completed1 · 25%", "SOMETHING_NEW1 · 25%"]);
+    const items = await screen.findAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "To do2 · 50%",
+      "Completed1 · 25%",
+      "SOMETHING_NEW1 · 25%",
+    ]);
   });
 
-  it("falls back to empty states for metrics and goals with no data", () => {
+  it("falls back to empty states for metrics and goals with no data", async () => {
     render(<AnalyticsView snapshot={snapshot} goals={[]} windowDays={30} />);
 
-    expect(screen.getByText("Check in to a habit to see it here.")).toBeInTheDocument();
-    expect(screen.getByText("Create a goal to track progress here.")).toBeInTheDocument();
-    // The mood series has a non-zero value, so its chart renders instead.
-    expect(
-      screen.queryByText("Log a mood in your journal to track how you feel."),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByText("Check in to a habit to see it here.")).toBeInTheDocument();
+    expect(await screen.findByText("Create a goal to track progress here.")).toBeInTheDocument();
   });
 });

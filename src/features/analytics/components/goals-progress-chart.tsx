@@ -3,9 +3,19 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { GoalProgressPoint } from "@/features/analytics/types";
+import {
+  AXIS_TICK,
+  TOOLTIP_CURSOR,
+  TOOLTIP_STYLE,
+  goalsChartHeight,
+} from "@/components/charts/chart-theme";
 import { cn, truncate } from "@/lib/utils";
 
-const AXIS_TICK = { fontSize: 12, fill: "var(--muted-foreground)" } as const;
+export interface GoalsProgressChartProps {
+  goals: GoalProgressPoint[];
+  emptyLabel?: string;
+  className?: string;
+}
 
 /**
  * Horizontal bars comparing goal progress (0–100%). Each bar takes its goal's
@@ -15,11 +25,7 @@ export function GoalsProgressChart({
   goals,
   emptyLabel = "No active goals yet.",
   className,
-}: {
-  goals: GoalProgressPoint[];
-  emptyLabel?: string;
-  className?: string;
-}) {
+}: GoalsProgressChartProps) {
   if (goals.length === 0) {
     return (
       <div
@@ -34,7 +40,7 @@ export function GoalsProgressChart({
   }
 
   // Grow with the number of bars so labels never overlap.
-  const height = Math.max(180, goals.length * 40);
+  const height = goalsChartHeight(goals.length);
 
   return (
     <div className={cn("w-full", className)} style={{ height }}>
@@ -60,14 +66,8 @@ export function GoalsProgressChart({
           />
           <Tooltip
             formatter={(value) => [`${value}%`, "Progress"]}
-            cursor={{ fill: "var(--muted)", opacity: 0.4 }}
-            contentStyle={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              color: "var(--card-foreground)",
-              fontSize: 12,
-            }}
+            cursor={TOOLTIP_CURSOR}
+            contentStyle={TOOLTIP_STYLE}
           />
           <Bar dataKey="progress" radius={[0, 4, 4, 0]} maxBarSize={18}>
             {goals.map((goal, index) => (

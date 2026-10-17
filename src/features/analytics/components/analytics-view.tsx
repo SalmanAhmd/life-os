@@ -2,9 +2,10 @@
 
 import type { ReactNode } from "react";
 
-import { DistributionChart, type DistributionSlice } from "@/components/charts/distribution-chart";
-import { TrendChart } from "@/components/charts/trend-chart";
-import { GoalsProgressChart } from "@/features/analytics/components/goals-progress-chart";
+import type { DistributionSlice } from "@/components/charts/distribution-chart";
+import { LazyDistributionChart } from "@/components/charts/lazy-distribution-chart";
+import { LazyTrendChart } from "@/components/charts/lazy-trend-chart";
+import { LazyGoalsProgressChart } from "@/features/analytics/components/lazy-goals-progress-chart";
 import type { AnalyticsSnapshot, GoalProgressPoint } from "@/features/analytics/types";
 import { formatDateOnly } from "@/lib/dates";
 import { cn, sum } from "@/lib/utils";
@@ -99,7 +100,7 @@ export function AnalyticsView({
           description={`Completed per day · ${windowLabel}`}
           className="lg:col-span-2"
         >
-          <TrendChart
+          <LazyTrendChart
             data={completions}
             valueLabel="Completed"
             emptyLabel="Complete a task to start building your streak."
@@ -107,11 +108,15 @@ export function AnalyticsView({
         </ChartCard>
 
         <ChartCard title="Tasks by status" description="Top-level, active tasks">
-          <DistributionChart slices={statusSlices} valueLabel="Tasks" emptyLabel="No tasks yet." />
+          <LazyDistributionChart
+            slices={statusSlices}
+            valueLabel="Tasks"
+            emptyLabel="No tasks yet."
+          />
         </ChartCard>
 
         <ChartCard title="Points earned" description={`Per day · last ${windowDays} days`}>
-          <TrendChart
+          <LazyTrendChart
             data={points}
             color="var(--chart-2)"
             valueLabel="Points"
@@ -123,7 +128,7 @@ export function AnalyticsView({
           title="Habit check-ins"
           description={`Check-ins per day · last ${windowDays} days`}
         >
-          <TrendChart
+          <LazyTrendChart
             data={checkIns}
             variant="bar"
             color="var(--chart-3)"
@@ -133,7 +138,7 @@ export function AnalyticsView({
         </ChartCard>
 
         <ChartCard title="Mood" description="Score on days you journaled (1 = bad, 5 = great)">
-          <TrendChart
+          <LazyTrendChart
             data={moods}
             variant="line"
             color="var(--chart-4)"
@@ -148,7 +153,10 @@ export function AnalyticsView({
           description="Your most advanced active goals"
           className="lg:col-span-2"
         >
-          <GoalsProgressChart goals={goals} emptyLabel="Create a goal to track progress here." />
+          <LazyGoalsProgressChart
+            goals={goals}
+            emptyLabel="Create a goal to track progress here."
+          />
         </ChartCard>
       </div>
     </div>

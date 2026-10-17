@@ -16,6 +16,7 @@ import {
 } from "recharts";
 
 import type { DayPoint } from "@/lib/analytics/series";
+import { AXIS_TICK, TOOLTIP_CURSOR, TOOLTIP_STYLE } from "@/components/charts/chart-theme";
 import { formatDateOnly } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
@@ -23,16 +24,6 @@ import { cn } from "@/lib/utils";
 function shortDate(date: string): string {
   return formatDateOnly(date).split(", ")[1] ?? date;
 }
-
-const AXIS_TICK = { fontSize: 12, fill: "var(--muted-foreground)" } as const;
-
-const TOOLTIP_STYLE = {
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  color: "var(--card-foreground)",
-  fontSize: 12,
-} as const;
 
 export interface TrendChartProps {
   data: DayPoint[];
@@ -104,7 +95,7 @@ export function TrendChart({
         formatter={(value) => [value, valueLabel]}
         contentStyle={TOOLTIP_STYLE}
         labelStyle={{ color: "var(--muted-foreground)" }}
-        cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+        cursor={TOOLTIP_CURSOR}
       />
     </>
   );

@@ -2,6 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
+import { TOOLTIP_STYLE } from "@/components/charts/chart-theme";
 import { cn } from "@/lib/utils";
 
 export interface DistributionSlice {
@@ -9,6 +10,14 @@ export interface DistributionSlice {
   value: number;
   /** Any CSS color, including theme variables such as `var(--chart-1)`. */
   color: string;
+}
+
+export interface DistributionChartProps {
+  slices: DistributionSlice[];
+  height?: number;
+  valueLabel?: string;
+  emptyLabel?: string;
+  className?: string;
 }
 
 /**
@@ -24,13 +33,7 @@ export function DistributionChart({
   valueLabel = "Count",
   emptyLabel = "No data yet.",
   className,
-}: {
-  slices: DistributionSlice[];
-  height?: number;
-  valueLabel?: string;
-  emptyLabel?: string;
-  className?: string;
-}) {
+}: DistributionChartProps) {
   const total = slices.reduce((acc, slice) => acc + slice.value, 0);
 
   if (total === 0) {
@@ -65,16 +68,7 @@ export function DistributionChart({
                 <Cell key={slice.label} fill={slice.color} />
               ))}
             </Pie>
-            <Tooltip
-              formatter={(value) => [value, valueLabel]}
-              contentStyle={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--card-foreground)",
-                fontSize: 12,
-              }}
-            />
+            <Tooltip formatter={(value) => [value, valueLabel]} contentStyle={TOOLTIP_STYLE} />
           </PieChart>
         </ResponsiveContainer>
       </div>

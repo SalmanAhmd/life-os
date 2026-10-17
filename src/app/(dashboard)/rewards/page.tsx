@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth/current-user";
 import { addDays, todayDateOnly } from "@/lib/dates";
 import { zeroFillDays } from "@/lib/analytics/series";
-import { TrendChart } from "@/components/charts/trend-chart";
+import { LazyTrendChart } from "@/components/charts/lazy-trend-chart";
 import { listRewardTransactions, getPointsBalance, pointsByDay } from "@/features/rewards/queries";
 
 export const metadata: Metadata = { title: "Rewards" };
@@ -48,7 +48,7 @@ export default async function RewardsPage() {
           <h2 className="text-sm font-medium">Points earned</h2>
           <p className="text-muted-foreground text-xs">Per day · last {TREND_DAYS} days</p>
         </div>
-        <TrendChart
+        <LazyTrendChart
           data={pointsSeries}
           color="var(--chart-2)"
           valueLabel="Points"
